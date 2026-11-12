@@ -55,16 +55,26 @@ func (m *DefaultAccessTokenManager) GetAccessToken() (accessToken string, err er
 
 	req.Header.Set("Content-Type", contentTypeApplicationJson)
 
-	response, err := http.DefaultClient.Do(req)
+	// 请求失败重试一次（重建请求，避免 body 已被读取）
+	var resp []byte
+	for attempt := 0; attempt < 2; attempt++ {
+		resp, err = doTokenRequest(req)
+		if err == nil {
+			break
+		}
+		if attempt == 0 {
+			req = m.GetRefreshRequestFunc()
+			if !strings.HasPrefix(req.URL.String(), "http") {
+				parse, _ := url.Parse(ServerUrl)
+				req.URL.Host = parse.Host
+				req.URL.Scheme = parse.Scheme
+			}
+			req.Header.Set("Content-Type", contentTypeApplicationJson)
+		}
+	}
 	if err != nil {
 		return
 	}
-
-	resp, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return
-	}
-	defer response.Body.Close()
 
 	var result = struct {
 		Code int    `json:"code"`
@@ -88,11 +98,27 @@ func (m *DefaultAccessTokenManager) GetAccessToken() (accessToken string, err er
 
 	accessToken = result.Data.AccessToken
 
-	err = m.Cache.Save(cacheKey, accessToken, time.Duration(result.Data.ExpiresIn)*time.Second)
+	// 提前 30 分钟过期重取：剩余有效期 < 30 分钟时重新获取将返回新 Token
+	ttl := time.Duration(result.Data.ExpiresIn-1800) * time.Second
+	if ttl < time.Minute {
+		ttl = time.Minute
+	}
+	err = m.Cache.Save(cacheKey, accessToken, ttl)
 	if err != nil {
 		return
 	}
 
+	return
+}
+
+// doTokenRequest 执行一次 token 请求并读取响应体
+func doTokenRequest(req *http.Request) (resp []byte, err error) {
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	resp, err = ioutil.ReadAll(response.Body)
 	return
 }
 

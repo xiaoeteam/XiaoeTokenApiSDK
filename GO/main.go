@@ -35,7 +35,7 @@ func main() {
 				fmt.Println(err)
 			}
 			payload := strings.NewReader(string(str))
-			req, err := http.NewRequest(http.MethodGet, demo.ServerUrl, payload)
+			req, err := http.NewRequest(http.MethodPost, demo.ServerUrl, payload)
 			if err != nil {
 				return nil
 			}

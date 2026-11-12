@@ -15,9 +15,10 @@ public class XiaoeClient {
     private static String contentType = "application/json;charset=utf-8";
     private static String grant_type = "client_credential";
 
-    private String app_id = "apphIl2eyC00000";
-    private String client_id = "xopntCygI900000";
-    private String secret_key = "C9GtUJPyHJYP3uSh3Eg4VIiq2u7xxxxx";
+    // 使用前请填写自己的凭据，切勿将真实凭据提交到仓库
+    private String app_id = "";
+    private String client_id = "";
+    private String client_secret = "";
 
     private TokenManager tokenManager = new TokenManager(app_id, client_id, secret_key, grant_type);
 

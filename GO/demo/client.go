@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	ServerUrl = "https://api.xiaoe-tech.com/token"
+	ServerUrl = "https://api.xiaoe-tech.com/stable_token"
 )
 
 // NewClient
