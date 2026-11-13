@@ -1,12 +1,12 @@
 ## 快速开始 & demo
 
-本目录为 Go 版 SDK：`POST /stable_token` 获取并自动维护 access_token（进程内文件缓存，剩余有效期 < 30 分钟自动刷新，失败重试一次）。
+本目录为 Go 版 SDK：`POST /stable_token` 获取并自动维护 access_token。
 
 ```go
 const (
 XiaoEAppId     = "appxxxx" // 店铺app_id 
 XiaoEClientId  = "xxxxxx"  // 店铺client_id
-XiaoEAppSecret = "xxxxxx"  // 店铺client_secret
+XiaoEAppSecret = "xxxxxx"  // 店铺client_sercet
 XiaoEGrantType = "client_credential" // 固定不变
 
 GetUserListOpenApi = "https://api.xiaoe-tech.com/xe.user.batch.get/1.0.0"
@@ -20,7 +20,7 @@ GetRefreshRequestFunc: func() *http.Request {
 params := make(map[string]string)
 params["app_id"] = XiaoEAppId
 params["client_id"] = XiaoEClientId
-params["client_secret"] = XiaoEAppSecret
+params["secret_key"] = XiaoEAppSecret
 params["grant_type"] = XiaoEGrantType
 
 str, err := json.Marshal(params)

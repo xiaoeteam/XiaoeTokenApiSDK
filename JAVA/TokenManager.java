@@ -5,26 +5,24 @@ import com.alibaba.fastjson.JSONObject;
 
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 public class TokenManager {
-    // access_token 有效期一般 7200 秒；剩余有效期 < 30 分钟时重新获取会返回新 Token，
-    // 因此本地缓存提前 30 分钟过期，到期自动刷新
-    private static final long REFRESH_AHEAD_MS = 30 * 60 * 1000;
+    private static final long MAX_TIME = 7200 * 1000;
     private static final String BASE_URL = "https://api.xiaoe-tech.com/stable_token";
 
     private String app_id = "";
     private String client_id = "";
-    private String client_secret = "";
+    private String secret_key = "";
     private String grant_type = "";
 
-    public TokenManager(String app_id, String client_id, String client_secret, String grant_type) {
+    public TokenManager(String app_id, String client_id, String secret_key, String grant_type) {
         this.app_id = app_id;
         this.client_id = client_id;
-        this.client_secret = client_secret;
+        this.secret_key = secret_key;
         this.grant_type = grant_type;
     }
 
@@ -36,39 +34,36 @@ public class TokenManager {
             if (!file.exists()) file.createNewFile();
             //若文件为空，则第一次访问
             if (file.length() == 0) {
-                access_token = this.refresh(file);
+                //获取access_token写入文件
+                access_token = this.get();
+                HashMap<String, String> map = new HashMap<>();
+                map.put("access_token", access_token);
+                map.put("expires_in", System.currentTimeMillis() + "");
+                this.writeToken(file, map);
             } else {
                 //从磁盘读取文件
                 String json = this.readToken(file);
                 JSONObject jsonObject = JSONObject.parseObject(json);
-                if (jsonObject != null && jsonObject.get("expire_at") != null) {
-                    long expireAt = jsonObject.getLongValue("expire_at");
+                if (jsonObject.get("expires_in") != null) {
+                    long saveTime = Long.parseLong((String) jsonObject.get("expires_in"));
                     long nowTime = System.currentTimeMillis();
-                    //剩余有效期 > 30 分钟才复用缓存，否则刷新
-                    if (expireAt - nowTime > REFRESH_AHEAD_MS) {
+                    long remainTime = nowTime - saveTime;
+                    //若间隔时间小于2小时
+                    if (remainTime < MAX_TIME) {
                         access_token = (String) jsonObject.get("access_token");
                     } else {
-                        access_token = this.refresh(file);
+                        //若间隔时间大于等于2小时，需要刷新access_token,重新写入文件
+                        access_token = this.get();
+                        HashMap<String, String> map = new HashMap<>();
+                        map.put("access_token", access_token);
+                        map.put("expires_in", System.currentTimeMillis() + "");
+                        this.writeToken(file, map);
                     }
-                } else {
-                    access_token = this.refresh(file);
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return access_token;
-    }
-
-    //拉取新 token 并写入缓存文件
-    private String refresh(File file) {
-        JSONObject data = this.postForData();
-        String access_token = data.getString("access_token");
-        long expires_in = data.getLongValue("expires_in");
-        HashMap<String, Object> map = new HashMap<>();
-        map.put("access_token", access_token);
-        map.put("expire_at", System.currentTimeMillis() + expires_in * 1000);
-        this.writeToken(file, map);
         return access_token;
     }
 
@@ -76,7 +71,8 @@ public class TokenManager {
     public String refreshAccessToken() {
         File file = new File("access_token.json");
         if (file.exists()) file.delete();
-        return getAccessToken();
+        String newAccessToken = getAccessToken();
+        return newAccessToken;
     }
 
     //token持久化到磁盘
@@ -84,8 +80,10 @@ public class TokenManager {
         try {
             FileOutputStream fos = new FileOutputStream(file, false);
             String json = JSON.toJSONString(map);
-            fos.write(json.getBytes(StandardCharsets.UTF_8));
+            fos.write(json.getBytes());
             fos.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -93,68 +91,66 @@ public class TokenManager {
 
     //从磁盘读取token
     private String readToken(File file) {
+        //若文件存在access_token，则读取access_token
         FileInputStream fis = null;
-        StringBuilder json = new StringBuilder();
+        String json = "";
         try {
             fis = new FileInputStream(file);
             byte[] b = new byte[1024];
+
             int len;
             while ((len = fis.read(b)) != -1) {
-                json.append(new String(b, 0, len));
+                json += new String(b, 0, len);
             }
             fis.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return json.toString();
+        return json;
     }
 
-    //发起 POST /stable_token 请求获取access_token（JSON body），失败自动重试一次
-    private JSONObject postForData() {
+    //发起post请求获取access_token（JSON body），原来为get请求拼query
+    private String get() {
         Map<String, String> params = new HashMap<>();
         params.put("app_id", this.app_id);
         params.put("client_id", this.client_id);
-        params.put("client_secret", this.client_secret);
+        params.put("secret_key", this.secret_key);
         params.put("grant_type", this.grant_type);
         String body = JSON.toJSONString(params);
-
-        RuntimeException lastErr = null;
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                URL reqURL = new URL(BASE_URL);
-                HttpURLConnection conn = (HttpURLConnection) reqURL.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(5000);
-                conn.setDoOutput(true);
-                conn.setDoInput(true);
-                conn.setRequestProperty("Content-Type", "application/json");
-                OutputStream os = conn.getOutputStream();
-                os.write(body.getBytes(StandardCharsets.UTF_8));
-                os.close();
-
-                InputStream is = conn.getInputStream();
-                StringBuilder result = new StringBuilder();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    result.append(line);
-                }
-                reader.close();
-                conn.disconnect();
-
-                JSONObject jsonObject = JSONObject.parseObject(result.toString());
-                if (jsonObject == null || jsonObject.getIntValue("code") != 0
-                        || jsonObject.getJSONObject("data") == null
-                        || jsonObject.getJSONObject("data").getString("access_token") == null) {
-                    // 错误码/错误信息透传（如 2001 invalid secret_key、2026 新应用禁用 GET 等）
-                    throw new RuntimeException("get access_token fail: " + result);
-                }
-                return jsonObject.getJSONObject("data");
-            } catch (IOException e) {
-                lastErr = new RuntimeException("request stable_token fail", e);
+        String result = null;
+        try {
+            URL reqURL = new URL(BASE_URL);
+            HttpURLConnection httpURLConnection = (HttpURLConnection) reqURL.openConnection();
+            httpURLConnection.setRequestMethod("POST");
+            httpURLConnection.setDoOutput(true);
+            httpURLConnection.setRequestProperty("Content-Type", "application/json");
+            OutputStream os = httpURLConnection.getOutputStream();
+            os.write(body.getBytes());
+            os.close();
+            InputStreamReader isr = new InputStreamReader(httpURLConnection.getInputStream());
+            char[] chars = new char[1024];
+            result = "";
+            int len;
+            while ((len = isr.read(chars)) != -1) {
+                result += new String(chars, 0, len);
             }
+            isr.close();
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+            // 请求失败时可在此处增加一次重试
+        } catch (IOException e) {
+            e.printStackTrace();
+            // 请求失败时可在此处增加一次重试
         }
-        throw lastErr;
+        JSONObject jsonObject = JSONObject.parseObject(result);
+        Map data = (Map)jsonObject.get("data");
+        String access_token = (String) data.get("access_token");
+        if (access_token!= null) {
+            return access_token;
+        } else {
+            return null;
+        }
     }
 }

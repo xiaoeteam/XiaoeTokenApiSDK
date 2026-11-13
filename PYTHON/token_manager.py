@@ -9,19 +9,16 @@ TOKEN_PATH = '/stable_token'
 
 TOKEN_CACHE_PATH = 'access_token.json'
 
-# 提前 30 分钟刷新：剩余有效期 < 30 分钟时重新获取会返回新 Token
-REFRESH_AHEAD = timedelta(seconds=1800)
-
 # %%
 
 # TokenManager类维护token功能
 
 
 class TokenManager:
-    def __init__(self, app_id, client_id, client_secret, grant_type):
+    def __init__(self, app_id, client_id, secret_key, grant_type):
         self.app_id = app_id
         self.client_id = client_id
-        self.client_secret = client_secret
+        self.secret_key = secret_key
         self.grant_type = grant_type
         self.access_token = None
         self.token_expire_at = None
@@ -29,44 +26,37 @@ class TokenManager:
     # 外部调用token方法拿access token
     def token(self):
         self._read_token()
-        if not self.access_token or not self.token_expire_at or self.token_expire_at - REFRESH_AHEAD < datetime.now():
+        if not self.access_token or not self.token_expire_at or self.token_expire_at < datetime.now():
             ok, msg = self._get_access_token()
             if not ok:
                 raise Exception("get access token fail:"+msg)
             self._write_token()
         return self.access_token
 
-    # 请求小鹅通获取access token（POST /stable_token，JSON body），失败自动重试一次
+    # 请求小鹅通获取access token（POST /stable_token，JSON body，原来为 requests.get）
     def _get_access_token(self):
         payload = json.dumps({
             "app_id": self.app_id,
             "client_id": self.client_id,
-            "client_secret": self.client_secret,
+            "secret_key": self.secret_key,
             "grant_type": self.grant_type,
         })
         headers = {
             'Content-Type': 'application/json'
         }
-        last_err = None
-        for _ in range(2):
-            try:
-                response = requests.post(BASE_URL + TOKEN_PATH,
-                                         headers=headers, data=payload)
-            except requests.RequestException as e:
-                last_err = e
-                continue
-            if not response.ok:
-                last_err = Exception("request fail, http status: %s" % response.status_code)
-                continue
-            resp = json.loads(response.text)
-            if resp['code'] != 0 or not resp['data']['access_token']:
-                # 错误码/错误信息透传（如 2001 invalid secret_key、2026 新应用禁用 GET 等）
-                return False, resp['msg']
-            self.access_token = resp['data']['access_token']
-            self.token_expire_at = datetime.now(
-            ) + timedelta(seconds=resp['data']['expires_in'])
-            return True, resp['msg']
-        return False, str(last_err)
+        # 请求失败时可在此处增加一次重试
+        response = requests.post(BASE_URL + TOKEN_PATH,
+                                 headers=headers, data=payload)
+        print(response.status_code)
+        if not response.ok:
+            return False, "request fail"
+        resp = json.loads(response.text)
+        if resp['code'] != 0 or not resp['data']['access_token']:
+            return False, resp['msg']
+        self.access_token = resp['data']['access_token']
+        self.token_expire_at = datetime.now(
+        ) + timedelta(seconds=resp['data']['expires_in'])
+        return True, resp['msg']
 
     # 从磁盘读取token
     def _read_token(self):

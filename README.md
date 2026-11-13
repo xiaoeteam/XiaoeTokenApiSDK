@@ -21,7 +21,7 @@
 const (
     XiaoEAppId     = "appxxxx"           // 店铺app_id
     XiaoEClientId  = "xxxxxx"            // 店铺client_id
-    XiaoEAppSecret = "xxxxxx"            // 店铺client_secret
+    XiaoEAppSecret = "xxxxxx"            // 店铺secret_key
     XiaoEGrantType = "client_credential" // 固定不变
 )
 
@@ -32,7 +32,7 @@ xiaoE := &demo.DefaultAccessTokenManager{
         params := map[string]string{
             "app_id":        XiaoEAppId,
             "client_id":     XiaoEClientId,
-            "client_secret": XiaoEAppSecret,
+            "secret_key":    XiaoEAppSecret,
             "grant_type":    XiaoEGrantType,
         }
         str, _ := json.Marshal(params)
@@ -46,7 +46,7 @@ xiaoE := &demo.DefaultAccessTokenManager{
 ### Java（[JAVA](JAVA)）
 
 ```java
-TokenManager tokenManager = new TokenManager(app_id, client_id, client_secret, "client_credential");
+TokenManager tokenManager = new TokenManager(app_id, client_id, secret_key, "client_credential");
 String accessToken = tokenManager.getAccessToken(); // 自动缓存与刷新
 ```
 
@@ -62,7 +62,7 @@ $accessToken = $tokenManage->getToken();
 
 ```python
 from token_manager import TokenManager
-manager = TokenManager(APP_ID, CLIENT_ID, CLIENT_SECRET, "client_credential")
+manager = TokenManager(APP_ID, CLIENT_ID, SECRET_KEY, "client_credential")
 access_token = manager.token()  # 自动缓存与刷新
 ```
 
@@ -71,20 +71,20 @@ access_token = manager.token()  # 自动缓存与刷新
 ```sh
 curl -X POST https://api.xiaoe-tech.com/stable_token \
   -H "Content-Type: application/json" \
-  -d '{"app_id":"appxxxx","client_id":"xopxxxx","client_secret":"xxxxxx","grant_type":"client_credential"}'
+  -d '{"app_id":"appxxxx","client_id":"xopxxxx","secret_key":"xxxxxx","grant_type":"client_credential"}'
 ```
 
 ## 接入步骤
 
-1. 在云服务控制台创建应用，拿到 `app_id` / `client_id` / `client_secret`，并把服务器 IP 加入白名单；
+1. 在云服务控制台创建应用，拿到 `app_id` / `client_id` / `secret_key`，并把服务器 IP 加入白名单；
 2. 引入对应语言目录的代码，填入凭据；
-3. 调用 token 方法获取 `access_token`（SDK 自动进程内/文件缓存，剩余有效期 < 30 分钟自动刷新，请求失败自动重试一次）；
+3. 调用 token 方法获取 `access_token`（SDK 自动缓存，到期重新获取；如需失败重试可在获取请求处自行增加一次重试）；
 4. 拿 `access_token` 调用业务 API。
 
 ## 接口约定
 
 - 请求：`POST https://api.xiaoe-tech.com/stable_token`，`Content-Type: application/json`
-- 参数：`app_id`（必填）、`client_id`（必填）、`client_secret`（必填，兼容 `secret_key`）、`grant_type`（`client_credential`，兼容 `client_credentials`）
+- 参数：`app_id`（必填）、`client_id`（必填）、`secret_key`（必填，即 client_secret）、`grant_type`（`client_credential`）
 - 响应：`{"code":0,"msg":"success","data":{"access_token":"...","expires_in":7200}}`
 
 ## 错误码
@@ -102,5 +102,5 @@ curl -X POST https://api.xiaoe-tech.com/stable_token \
 
 ## 安全须知
 
-- `client_secret` / `access_token` 不写入日志，不硬编码在代码里提交到仓库；
-- token 缓存文件（`*_access_token.json`）已在 `.gitignore` 中排除，禁止提交。
+- `secret_key` / `access_token` 不写入日志，不硬编码在代码里提交到仓库；
+- token 缓存文件（如 `access_token.json`、`*_access_token.json`）已在 `.gitignore` 中排除，禁止提交。
