@@ -12,8 +12,8 @@ import (
 
 const (
 	XiaoEAppId     = "appxxxx"           // 店铺app_id
-	XiaoEClientId  = "xxxxxx"            // 店铺client_id
-	XiaoEAppSecret = "xxxxxx"            // 店铺client_sercet
+	XiaoEClientId  = "xxxxxx"            // 应用的client_id
+	XiaoEAppSecret = "xxxxxx"            // 应用的凭证秘钥，即client_secret
 	XiaoEGrantType = "client_credential" // 固定不变
 
 	GetUserListOpenApi = "https://api.xiaoe-tech.com/xe.user.batch.get/1.0.0"

@@ -6,7 +6,7 @@ import requests
 # 使用前请填写自己的凭据，切勿将真实凭据提交到仓库
 APP_ID = "appXXXXXXXXXXXXX"
 CLIENT_ID = "xopXXXXXXXXXXXXX"
-SECRET_KEY = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+SECRET_KEY = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"  # 应用的凭证秘钥，即client_secret
 GRANT_TYPE = "client_credential" # 固定值 硬编码即可
 
 # %%

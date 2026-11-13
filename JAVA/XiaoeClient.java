@@ -17,7 +17,7 @@ public class XiaoeClient {
 
     private String app_id = "apphIl2eyC00000";
     private String client_id = "xopntCygI900000";
-    private String secret_key = "C9GtUJPyHJYP3uSh3Eg4VIiq2u7xxxxx";
+    private String secret_key = "C9GtUJPyHJYP3uSh3Eg4VIiq2u7xxxxx";  // 应用的凭证秘钥，即client_secret
 
     private TokenManager tokenManager = new TokenManager(app_id, client_id, secret_key, grant_type);
 

@@ -6,7 +6,7 @@ class TokenManage
     const URL = "https://api.xiaoe-tech.com/stable_token";
     private $app_id = "appXXXXXXXXXX";
     private $client_id = "xopXXXXXXXXXX";
-    private $secret_key = "XXXXXXXXXX";
+    private $secret_key = "XXXXXXXXXX";  // 应用的凭证秘钥，即client_secret
     private $grant_type = "client_credential";
 
 
